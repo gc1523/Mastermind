@@ -7,9 +7,10 @@ public class Main {
         Board board = new Board();
         MastermindGuesser guesser = new MastermindGuesser();
         while(board.inPlay) {
+            System.out.println(guesser.generateGuess());
             List<Integer> guess = parseGuess();
             System.out.println("GUESS:" + guess);
-            List<Result> result = (board.guess(guess));
+            List<ResultCombinations.Result> result = (board.guess(guess));
             System.out.println("RESULT :" + result);
             guesser.provideInfo(guess, result);
         }
