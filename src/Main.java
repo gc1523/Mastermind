@@ -11,7 +11,7 @@ public class Main {
             List<Integer> guess = parseGuess();
             System.out.println("GUESS:" + guess);
             List<ResultCombinations.Result> result = (board.guess(guess));
-            System.out.println("RESULT :" + result);
+            System.out.println("RESULT:" + result);
             guesser.provideInfo(guess, result);
         }
     }

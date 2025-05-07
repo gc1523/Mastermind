@@ -7,7 +7,6 @@ public class MastermindGuesser {
     private Map<List<Integer>, List<ResultCombinations.Result>> information = new HashMap<>();
     private Set<List<Integer>> workingSet = CombinationGenerator.generateAllCombinations(NUM_SLOTS, NUM_COLOURS - 1);
 
-    // Provide the feedback about a guess
     void provideInfo(List<Integer> guess, List<ResultCombinations.Result> result) {
         information.put(guess, result);
         updateWorkingSet();
@@ -15,36 +14,36 @@ public class MastermindGuesser {
 
     public List<Integer> generateGuess() {
         if (information.isEmpty()) {
-            return List.of(0, 0, 1, 1); // Knuth's first guess
-        } else {
-            Map<List<Integer>, Integer> guessScores = new HashMap<>();
-            for (List<Integer> possibleGuess : CombinationGenerator.generateAllCombinations(NUM_SLOTS, NUM_COLOURS - 1)) {
-                int worstCaseScore = 0;
-                for (List<ResultCombinations.Result> hypothesisedResult : ResultCombinations.generateUniqueCombinations(NUM_SLOTS)) {
-                    int workingSetTheoreticalSize = workingSet.size();
-                    // count how many codes in S would still be valid if you got that response from this guess.
-                    // take the worst case as score
-                    for (List<Integer> s : workingSet) {
-                            // TODO: This condition is incorrect as a byproduct of the incorrect updateWorkingSet logic (I think :p)
-                            if (sharedValues(possibleGuess, s) < getValids(hypothesisedResult)) {
-                                workingSetTheoreticalSize--;
-                            }
-                    }
-
-                    worstCaseScore = Math.max(worstCaseScore, workingSetTheoreticalSize);
-                }
-                guessScores.put(possibleGuess, worstCaseScore);
-            }
-            return guessScores.entrySet()
-                    .stream()
-                    .min(Comparator
-                            .comparingInt((Map.Entry<List<Integer>, Integer> e) -> e.getValue())
-                            .thenComparing(e -> !workingSet.contains(e.getKey()))
-                            .thenComparing(e -> asNumber(e.getKey())))
-                    .map(Map.Entry::getKey)
-                    .orElse(null);
+            return List.of(0, 0, 1, 1); // Knuth's recommended starting guess
         }
+
+        Map<List<Integer>, Integer> guessScores = new HashMap<>();
+
+        Set<List<Integer>> allGuesses = CombinationGenerator.generateAllCombinations(NUM_SLOTS, NUM_COLOURS - 1);
+
+        for (List<Integer> possibleGuess : allGuesses) {
+            Map<String, Integer> responseCountMap = new HashMap<>();
+
+            for (List<Integer> possibleCode : workingSet) {
+                int[] feedback = getFeedback(possibleCode, possibleGuess);
+                String key = feedback[0] + "B" + feedback[1] + "W";
+                responseCountMap.put(key, responseCountMap.getOrDefault(key, 0) + 1);
+            }
+
+            int worstCaseSize = responseCountMap.values().stream().max(Integer::compareTo).orElse(0);
+            guessScores.put(possibleGuess, worstCaseSize);
+        }
+
+        return guessScores.entrySet()
+                .stream()
+                .min(Comparator
+                        .comparingInt((Map.Entry<List<Integer>, Integer> e) -> e.getValue())
+                        .thenComparing(e -> !workingSet.contains(e.getKey())) // prefer guesses from workingSet
+                        .thenComparing(e -> asNumber(e.getKey())))             // prefer lowest numeric code
+                .map(Map.Entry::getKey)
+                .orElse(null);
     }
+
 
     private int asNumber(List<Integer> code) {
         int num = 0;
@@ -56,21 +55,34 @@ public class MastermindGuesser {
 
 
     void updateWorkingSet() {
-        System.out.println("WORKING SET IS SIZE:" + workingSet.size() + workingSet);
         List<List<Integer>> toRemove = new ArrayList<>();
-        for (List<Integer> possibleGuess : workingSet) {
-            for (Map.Entry<List<Integer>, List<ResultCombinations.Result>> info : information.entrySet()) {
-                if (sharedValues(info.getKey(), possibleGuess) < getValids(info.getValue()) || possibleGuess.equals(info.getKey()) ) {
-                    toRemove.add(possibleGuess);
-                    // TODO Fix this, logic is incorrect - consider wiki article sources
+        System.out.println("Working set size: " + workingSet.size());
+        for (List<Integer> possibleCode : workingSet) {
+            for (Map.Entry<List<Integer>, List<ResultCombinations.Result>> entry : information.entrySet()) {
+                List<Integer> pastGuess = entry.getKey();
+                List<ResultCombinations.Result> actualFeedback = entry.getValue();
+                int[] expectedFeedback = getFeedback(possibleCode, pastGuess);
+
+                int expectedBlack = expectedFeedback[0];
+                int expectedWhite = expectedFeedback[1];
+                int actualBlack = 0;
+                int actualWhite = 0;
+
+                for (ResultCombinations.Result r : actualFeedback) {
+                    if (r == ResultCombinations.Result.CORRECT) actualBlack++;
+                    else if (r == ResultCombinations.Result.PRESENT) actualWhite++;
+                }
+
+                if (expectedBlack != actualBlack || expectedWhite != actualWhite) {
+                    toRemove.add(possibleCode);
+                    break;
                 }
             }
         }
-
         toRemove.forEach(workingSet::remove);
-
-        System.out.println("WORKING SET IS SIZE:" + workingSet.size() + workingSet);
+        System.out.println("Working set size: " + workingSet.size());
     }
+
 
     private int getValids(List<ResultCombinations.Result> value) {
         int count = 0;
@@ -104,6 +116,29 @@ public class MastermindGuesser {
 
     boolean nonMatchingResponse() {
         return false;
+    }
+
+    private int[] getFeedback(List<Integer> code, List<Integer> guess) {
+        int black = 0, white = 0;
+        Map<Integer, Integer> codeColorCounts = new HashMap<>();
+        Map<Integer, Integer> guessColorCounts = new HashMap<>();
+
+        for (int i = 0; i < code.size(); i++) {
+            if (code.get(i).equals(guess.get(i))) {
+                black++;
+            } else {
+                codeColorCounts.put(code.get(i), codeColorCounts.getOrDefault(code.get(i), 0) + 1);
+                guessColorCounts.put(guess.get(i), guessColorCounts.getOrDefault(guess.get(i), 0) + 1);
+            }
+        }
+
+        for (Integer color : guessColorCounts.keySet()) {
+            if (codeColorCounts.containsKey(color)) {
+                white += Math.min(codeColorCounts.get(color), guessColorCounts.get(color));
+            }
+        }
+
+        return new int[]{black, white};
     }
 
 
