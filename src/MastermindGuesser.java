@@ -1,12 +1,16 @@
 import java.util.*;
 
 public class MastermindGuesser {
-    int NUM_SLOTS = 4;
-    int NUM_COLOURS = 6;
-
+    private int NUM_SLOTS;
+    private int NUM_COLOURS;
     private Map<List<Integer>, List<ResultCombinations.Result>> information = new HashMap<>();
-    private Set<List<Integer>> workingSet = CombinationGenerator.generateAllCombinations(NUM_SLOTS, NUM_COLOURS - 1);
+    private Set<List<Integer>> workingSet;
 
+    public MastermindGuesser(int num_colours, int num_slots) {
+        this.NUM_COLOURS = num_colours;
+        this.NUM_SLOTS = num_slots;
+        this.workingSet = CombinationGenerator.generateAllCombinations(NUM_SLOTS, NUM_COLOURS - 1);
+    }
     void provideInfo(List<Integer> guess, List<ResultCombinations.Result> result) {
         information.put(guess, result);
         updateWorkingSet();
@@ -14,16 +18,23 @@ public class MastermindGuesser {
 
     public List<Integer> generateGuess() {
         if (information.isEmpty()) {
-            return List.of(0, 0, 1, 1); // Knuth's recommended starting guess
+            List<Integer> result = new ArrayList<>(NUM_SLOTS);
+            int half = NUM_SLOTS / 2;
+            for (int i = 0; i < NUM_SLOTS; i++) {
+                result.add(i < half ? 0 : 1);
+            }
+            return result; // This is knuth's described starting guess.
+        } else if (workingSet.size() == 1) {
+            return workingSet.iterator().next();
         }
 
         Map<List<Integer>, Integer> guessScores = new HashMap<>();
 
         Set<List<Integer>> allGuesses = CombinationGenerator.generateAllCombinations(NUM_SLOTS, NUM_COLOURS - 1);
-
+        int count = 0;
         for (List<Integer> possibleGuess : allGuesses) {
             Map<String, Integer> responseCountMap = new HashMap<>();
-
+            // System.out.print("\rGenerating guess: " + String.format("%.4f", (double) 100 * count / allGuesses.size()) + "%");
             for (List<Integer> possibleCode : workingSet) {
                 int[] feedback = getFeedback(possibleCode, possibleGuess);
                 String key = feedback[0] + "B" + feedback[1] + "W";
@@ -32,8 +43,9 @@ public class MastermindGuesser {
 
             int worstCaseSize = responseCountMap.values().stream().max(Integer::compareTo).orElse(0);
             guessScores.put(possibleGuess, worstCaseSize);
+            count++;
         }
-
+        // System.out.print("\rGenerating guess: 100%\n");
         return guessScores.entrySet()
                 .stream()
                 .min(Comparator
@@ -56,7 +68,7 @@ public class MastermindGuesser {
 
     void updateWorkingSet() {
         List<List<Integer>> toRemove = new ArrayList<>();
-        System.out.println("Working set size: " + workingSet.size());
+        // System.out.print("Working set size: " + workingSet.size());
         for (List<Integer> possibleCode : workingSet) {
             for (Map.Entry<List<Integer>, List<ResultCombinations.Result>> entry : information.entrySet()) {
                 List<Integer> pastGuess = entry.getKey();
@@ -80,7 +92,7 @@ public class MastermindGuesser {
             }
         }
         toRemove.forEach(workingSet::remove);
-        System.out.println("Working set size: " + workingSet.size());
+        // System.out.println(" -> " + workingSet.size());
     }
 
 

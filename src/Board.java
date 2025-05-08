@@ -2,19 +2,25 @@ import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class Board {
-    private static final int MAX_ROUNDS = 10;
-    private static final int NUM_COLOURS = 6;
-    private static final int NUM_SLOTS = 4;
-    private List<Integer> solution = generateSolution();
-    private int rounds = 0;
+    private static final int MAX_ROUNDS = 20;
+    private final int NUM_COLOURS;
+    private final int NUM_SLOTS;
+    private List<Integer> solution;
+    int rounds = 0;
     boolean inPlay = true;
+
+    public Board(int num_colours, int num_slots) {
+        this.NUM_COLOURS = num_colours;
+        this.NUM_SLOTS = num_slots;
+        this.solution = generateSolution();
+    }
 
     private List<Integer> generateSolution() {
         List<Integer> solution = new ArrayList<>();
         for (int i = 0; i < NUM_SLOTS; i++) {
             solution.add(ThreadLocalRandom.current().nextInt(NUM_COLOURS));
         }
-        System.out.println("SOLUTION GENERATED:" + solution);
+        // System.out.println("SOLUTION GENERATED:" + solution);
         return solution;
     }
 
@@ -40,8 +46,8 @@ public class Board {
         }
 
         Collections.shuffle(results);
-        if (results.equals(List.of(ResultCombinations.Result.CORRECT, ResultCombinations.Result.CORRECT, ResultCombinations.Result.CORRECT, ResultCombinations.Result.CORRECT))) {
-            System.out.println("CORRECT GUESS");
+        if (results.size() == NUM_SLOTS && results.stream().allMatch((r -> r == ResultCombinations.Result.CORRECT))) {
+            // System.out.println("CORRECT GUESS");
             inPlay = false;
         } else if (rounds >= MAX_ROUNDS) {
             System.out.println("TOO MANY GUESSES\n Solution was:" + solution);
